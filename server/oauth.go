@@ -4,7 +4,17 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/qiniu-ava/pkg/random"
 	"golang.org/x/oauth2"
+)
+
+const (
+	stateLen = 16
+	stateTTL = 300 //seconds
+
+	stateCookieKey = "hodor_state"
+	tokenCookieKey = "hodor_token"
+	originQueryKey = "hodor_origin"
 )
 
 type OAuthRule struct {
@@ -12,57 +22,81 @@ type OAuthRule struct {
 	Upstream string
 }
 
-//
 func (or *OAuthRule) Verify(w http.ResponseWriter, r *http.Request) {
-	token, err := or.retriveToken(r)
+	ck, e := r.Cookie(tokenCookieKey)
+	if e != nil {
+		or.redirectToLogin(w, r)
+		return
+	}
+	token, err := unmarshalToken(ck.Value)
 	if err != nil {
-		failed(w)
+		or.redirectToLogin(w, r)
 		return
 	}
 	newToken, err := or.Config.TokenSource(context.TODO(), token).Token()
 	if err != nil {
-		failed(w)
+		or.redirectToLogin(w, r)
 		return
 	}
 	if token.AccessToken != newToken.AccessToken {
 		or.setToken(w, r, newToken)
+		return
 	}
 
+	// valid request shall pass
+	w.WriteHeader(http.StatusOK)
 }
 
-// redirect to login
-func (or *OAuthRule) Login(w http.ResponseWriter, r *http.Request) {
-	// todo: state will be set into cookie
+func (or *OAuthRule) redirectToLogin(w http.ResponseWriter, r *http.Request) {
+	state := random.SecureRandomGenerator.MustGenString(stateLen, 62)
+	redirection := or.Config.AuthCodeURL(state, oauth2.SetAuthURLParam(originQueryKey, r.URL.String()))
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     stateCookieKey,
+		Value:    state,
+		Domain:   r.Host,
+		MaxAge:   stateTTL,
+		Secure:   true,
+		HttpOnly: true,
+	})
+	http.Redirect(w, r, redirection, http.StatusFound)
 }
 
-func (or *OAuthRule) retriveToken(r *http.Request) (*oauth2.Token, error) {
-	// todo: retrive from cookie
-	return nil, nil
-}
-
+// set token into cookie, and retry the original request
 func (or *OAuthRule) setToken(w http.ResponseWriter, r *http.Request, t *oauth2.Token) {
-	// todo: set token into cookie, and redirect to retry
+	tk, e := marshalToken(t)
+	if e != nil {
+		internalError(w, "write token failed")
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     tokenCookieKey,
+		Value:    tk,
+		Domain:   r.Host,
+		Expires:  t.Expiry,
+		Secure:   true,
+		HttpOnly: true,
+	})
+	http.Redirect(w, r, r.URL.String(), http.StatusFound)
 }
 
 func (or *OAuthRule) Callback(w http.ResponseWriter, r *http.Request) {
-	if err := checkState(r); err != nil {
-		failed(w)
+	queryState := r.URL.Query().Get("state")
+	ck, e := r.Cookie(stateCookieKey)
+	if e != nil {
+		unauthorizedError(w, "no state in cookie")
+	}
+	if queryState != ck.Value {
+		unauthorizedError(w, "state mismatch")
 		return
 	}
 
 	token, err := or.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
 	if err != nil {
-		failed(w)
+		unauthorizedError(w, "got no token")
 		return
 	}
 
-	token.SetAuthHeader(r)
-	w.WriteHeader(http.StatusOK)
+	or.setToken(w, r, token)
 }
-
-// compare state set in cookie with the one in callback
-func checkState(r *http.Request) error {
-	return nil
-}
-
-func failed(w http.ResponseWriter) {}
