@@ -1,9 +1,10 @@
-package server
+package handler
 
 import (
 	"context"
 	"net/http"
 
+	"github.com/go-logr/logr"
 	"github.com/qiniu-ava/pkg/random"
 	"golang.org/x/oauth2"
 )
@@ -18,8 +19,8 @@ const (
 )
 
 type OAuthRule struct {
-	Config   *oauth2.Config
-	Upstream string
+	Config *oauth2.Config
+	log    logr.Logger
 }
 
 func (or *OAuthRule) Verify(w http.ResponseWriter, r *http.Request) {
@@ -85,16 +86,16 @@ func (or *OAuthRule) Callback(w http.ResponseWriter, r *http.Request) {
 	queryState := r.URL.Query().Get("state")
 	ck, e := r.Cookie(stateCookieKey)
 	if e != nil {
-		unauthorizedError(w, "no state in cookie")
+		unauthorized(w, "no state in cookie")
 	}
 	if queryState != ck.Value {
-		unauthorizedError(w, "state mismatch")
+		unauthorized(w, "state mismatch")
 		return
 	}
 
 	token, err := or.Config.Exchange(context.TODO(), r.URL.Query().Get("code"))
 	if err != nil {
-		unauthorizedError(w, "got no token")
+		unauthorized(w, "got no token")
 		return
 	}
 
