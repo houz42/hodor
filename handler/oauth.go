@@ -97,6 +97,7 @@ func (or *OAuthRule) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 func (or *OAuthRule) setToken(w http.ResponseWriter, r *http.Request, t *oauth2.Token) {
 	tk, e := marshalToken(t)
 	if e != nil {
+		or.log.Error(e, "marshal token failed")
 		internalError(w, "write token failed")
 		return
 	}

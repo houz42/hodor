@@ -29,7 +29,6 @@ func Handler(cfg *Config, l logr.Logger) http.Handler {
 			return
 		}
 
-		log.V(4).Info("request allowed")
 		rule.Verify(w, r)
 	})
 
