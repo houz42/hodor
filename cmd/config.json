@@ -1,0 +1,18 @@
+{
+    "rules": {
+        "example.com": {
+            "config": {
+                "clientID": "",
+                "clientSecret": "",
+                "endpoint": {
+                    "authURL": "",
+                    "tokenURL": ""
+                },
+                "redirectURL": "",
+                "scopes": []
+            }
+        }
+    },
+    "verify_path": "/verify",
+    "callback_path": "/callback"
+}

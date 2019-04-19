@@ -15,3 +15,4 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o hodor ./cmd
 FROM alpine:3.9
 COPY --from=builder /src/hodor /hodor
 ENTRYPOINT [ "/hodor" ]
+CMD [ "-v", "2", "-alsologtostderr" ]

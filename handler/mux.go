@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	Rules        map[string]*OAuthRule `json:"rueles,omitempty"`
+	Rules        map[string]*OAuthRule `json:"rules,omitempty"`
 	VerifyPath   string                `json:"verify_path,omitempty"`
 	CallbackPath string                `json:"callback_path,omitempty"`
 }

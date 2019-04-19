@@ -37,6 +37,9 @@ func (or *OAuthRule) Verify(w http.ResponseWriter, r *http.Request) {
 		or.redirectToLogin(w, r)
 		return
 	}
+
+	// fixme: it's not safe trusting token in request cookie
+	// the token should be checked over id provider or signed
 	newToken, err := or.Config.TokenSource(context.TODO(), token).Token()
 	if err != nil {
 		l.Error(err, "token rotation failed, redirect to login")
