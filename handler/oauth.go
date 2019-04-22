@@ -15,7 +15,8 @@ const (
 
 	stateCookieKey = "hodor_state"
 	tokenCookieKey = "hodor_token"
-	originQueryKey = "hodor_origin"
+	hostCookieKey  = "hodor_host"
+	pathCookieKey  = "hodor_path"
 )
 
 type OAuthRule struct {
@@ -64,6 +65,7 @@ func (or *OAuthRule) Callback(w http.ResponseWriter, r *http.Request) {
 	if e != nil {
 		l.V(3).Info("no state in callback, reject")
 		unauthorized(w, "no state in cookie")
+		return
 	}
 	if queryState != ck.Value {
 		l.V(2).Info("state mismatch, reject")
@@ -83,16 +85,11 @@ func (or *OAuthRule) Callback(w http.ResponseWriter, r *http.Request) {
 
 func (or *OAuthRule) redirectToLogin(w http.ResponseWriter, r *http.Request) {
 	state := random.SecureRandomGenerator.MustGenString(stateLen, 62)
-	redirection := or.Config.AuthCodeURL(state, oauth2.SetAuthURLParam(originQueryKey, r.URL.String()))
+	redirection := or.Config.AuthCodeURL(state)
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     stateCookieKey,
-		Value:    state,
-		Domain:   r.Host,
-		MaxAge:   stateTTL,
-		Secure:   true,
-		HttpOnly: true,
-	})
+	setTempCookie(w, r, pathCookieKey, r.URL.Path)
+	setTempCookie(w, r, hostCookieKey, r.Host)
+	setTempCookie(w, r, stateCookieKey, state)
 	http.Redirect(w, r, redirection, http.StatusFound)
 }
 
@@ -105,6 +102,18 @@ func (or *OAuthRule) setToken(w http.ResponseWriter, r *http.Request, t *oauth2.
 		return
 	}
 
+	path := r.URL.Path
+	oc, e := r.Cookie(pathCookieKey)
+	if e != nil {
+		if e != http.ErrNoCookie {
+			or.log.Error(e, "get origin path in cookie failed")
+			internalError(w, "")
+			return
+		}
+	} else if oc.Value != "" {
+		path = oc.Value
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     tokenCookieKey,
 		Value:    tk,
@@ -113,5 +122,5 @@ func (or *OAuthRule) setToken(w http.ResponseWriter, r *http.Request, t *oauth2.
 		Secure:   true,
 		HttpOnly: true,
 	})
-	http.Redirect(w, r, r.URL.String(), http.StatusFound)
+	http.Redirect(w, r, path, http.StatusFound)
 }

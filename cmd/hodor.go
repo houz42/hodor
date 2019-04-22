@@ -27,6 +27,8 @@ func main() {
 
 	done := make(chan struct{})
 	go func() {
+		defer close(done)
+
 		server := &http.Server{
 			Addr:    address,
 			Handler: handler.Handler(cfg, log),
@@ -37,8 +39,6 @@ func main() {
 			return
 		}
 		log.Info("hodor is shutted down gracefully")
-
-		close(done)
 	}()
 
 	<-done

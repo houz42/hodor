@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/go-logr/logr"
 )
@@ -34,19 +34,17 @@ func Handler(cfg *Config, l logr.Logger) http.Handler {
 
 	mux.HandleFunc(cfg.CallbackPath, func(w http.ResponseWriter, r *http.Request) {
 		log := l.WithValues("host", r.Host, "path", r.URL.Path)
-		origin := r.URL.Query().Get(originQueryKey)
-		if origin == "" {
-			log.V(3).Info("no origin url in callback")
-			badRequest(w, "no origin url in callback")
+		log.V(5).Info("request", "cookies", fmt.Sprintf("%v", r.Cookies()))
+		hc, e := r.Cookie(hostCookieKey)
+		if e != nil || hc.Value == "" {
+			log.Error(e, "get original host cookie failed")
+			badRequest(w, "unknown original host")
 			return
 		}
-		ou, e := url.Parse(origin)
-		if e != nil {
-			log.Error(e, "parse origin url in callback request failed")
-			badRequest(w, "bad origin url in callback")
-			return
-		}
-		rule := cfg.Rules[ou.Host]
+		host := hc.Value
+		log.WithValues("origin host", host)
+
+		rule := cfg.Rules[host]
 		if rule == nil {
 			log.V(2).Info("no rule")
 			return
