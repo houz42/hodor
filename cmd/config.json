@@ -1,6 +1,6 @@
 {
     "rules": {
-        "example.com": {
+        "example.com:8080": {
             "config": {
                 "clientID": "",
                 "clientSecret": "",
@@ -8,8 +8,11 @@
                     "authURL": "",
                     "tokenURL": ""
                 },
-                "redirectURL": "",
-                "scopes": []
+                "redirectURL": "http://example.com:8080/callback",
+                "scopes": [
+                    "read_user",
+                    "email"
+                ]
             }
         }
     },

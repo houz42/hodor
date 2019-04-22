@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hodor
+spec:
+  selector:
+    matchLabels:
+      app: hodor
+  template:
+    metadata:
+      labels:
+        app: hodor
+    spec:
+      containers:
+      - name: hodor
+        image: reg.qiniu.com/42/hodor:test
+        imagePullPolicy: IfNotPresent
+        command: ["/hodor", "-v", "5", "-alsologtostderr", "-config", "/conf/config.json"]
+        volumeMounts:
+        - name: config
+          mountPath: /conf
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
+      volumes:
+      - name: config
+        configMap:
+          name: hodor-config
